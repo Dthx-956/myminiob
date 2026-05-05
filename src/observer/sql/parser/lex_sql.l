@@ -145,13 +145,13 @@ ENCLOSED                                RETURN_TOKEN(ENCLOSED);
 "*" |
 "/"                                     { return yytext[0]; }
 
-\"[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])\" {
+\"[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\" {
     yylval->cstring = strdup(yytext);
     static_cast<vector<char*>*>(yyextra)->push_back(yylval->cstring);
     RETURN_TOKEN(DATE_STR);
 }
 
-\'[0-9]{4}\-(0?[1-9]|1[012])\-(0?[1-9]|[12][0-9]|3[01])\' {
+\'[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}\' {
     yylval->cstring = strdup(yytext);
     static_cast<vector<char*>*>(yyextra)->push_back(yylval->cstring);
     RETURN_TOKEN(DATE_STR);
