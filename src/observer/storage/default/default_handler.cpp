@@ -100,7 +100,14 @@ RC DefaultHandler::create_db(const char *dbname)
   return RC::SUCCESS;
 }
 
-RC DefaultHandler::drop_db(const char *dbname) { return RC::INTERNAL; }
+RC DefaultHandler::drop_table(const char *dbname, const char *relation_name) 
+{
+    Db *db = find_db(dbname);
+    if (db == nullptr) {
+        return RC::SCHEMA_DB_NOT_OPENED;
+    }
+    return db->drop_table(relation_name);
+}
 
 RC DefaultHandler::open_db(const char *dbname)
 {
