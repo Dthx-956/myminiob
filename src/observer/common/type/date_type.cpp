@@ -16,7 +16,9 @@ int DateType::compare(const Value &left, const Value &right) const
 {
   ASSERT(left.attr_type() == AttrType::DATES, "left type is not date");
   if (right.attr_type() == AttrType::DATES || right.attr_type() == AttrType::INTS) {
-    return common::compare_int((void *)&left.value_.int_value_, (void *)&right.value_.int_value_);
+    int left_val = left.get_int();
+    int right_val = right.get_int();
+    return common::compare_int((void *)&left_val, (void *)&right_val);
   }
   return INT32_MAX;
 }
@@ -66,7 +68,7 @@ RC DateType::set_value_from_str(Value &val, const string &data) const
 
 RC DateType::to_string(const Value &val, string &result) const
 {
-  int value = val.value_.int_value_;
+  int value = val.get_int();
   char buf[16] = {0};
   snprintf(buf, sizeof(buf), "%04d-%02d-%02d", value / 10000, (value % 10000) / 100, value % 100);
   result = buf;
