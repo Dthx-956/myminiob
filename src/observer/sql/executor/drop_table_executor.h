@@ -1,12 +1,14 @@
 #pragma once
 
 #include "common/sys/rc.h"
-#include "sql/executor/command_executor.h"
 
 class SQLStageEvent;
 
-class DropTableExecutor : public CommandExecutor
+class DropTableExecutor
 {
 public:
-  RC execute(SQLStageEvent *sql_event) override;
+  DropTableExecutor() = default;
+  virtual ~DropTableExecutor() = default;
+
+  RC execute(SQLStageEvent *sql_event);
 };
