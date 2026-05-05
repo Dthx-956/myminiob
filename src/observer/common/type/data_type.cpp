@@ -25,6 +25,6 @@ array<unique_ptr<DataType>, static_cast<int>(AttrType::MAXTYPE)> DataType::type_
     make_unique<IntegerType>(),                     // 2 INTS
     make_unique<FloatType>(),                       // 3 FLOATS
     make_unique<VectorType>(),                      // 4 VECTORS
-    make_unique<DateType>(),                        // 5 DATES  ← 新增
-    make_unique<BooleanType>(),                     // 6 BOOLEANS
+    make_unique<DateType>(),                        // 5 DATES
+    make_unique<DataType>(AttrType::BOOLEANS),     // 6 BOOLEANS
 };
