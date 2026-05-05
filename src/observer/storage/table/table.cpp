@@ -172,46 +172,49 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   return rc;
 }
 
-RC Table::destroy(const char *dir) 
+RC Table::destroy(const char *dir)
 {
-    // 1. 必须先 sync，把 buffer pool 里的脏页刷到磁盘，否则删文件后重建同名表会读到旧数据
+    // 1. 先 sync，把 buffer pool 里的脏页刷到磁盘
     RC rc = sync();
     if (rc != RC::SUCCESS) {
         return rc;
     }
 
-    // 2. 删除元数据文件：{dir}/{table_name}.table
+    // 2. 关闭 engine，释放所有文件描述符（buffer pool、索引等）
+    // 必须先关闭再删文件，否则 engine 析构时可能访问已删除的文件
+    engine_.reset();
+
+    // 3. 删除元数据文件：{dir}/{table_name}.table
     std::string path = table_meta_file(dir, name());
     if (unlink(path.c_str()) != 0) {
         LOG_ERROR("Failed to remove meta file=%s, errno=%d", path.c_str(), errno);
-        return RC::GENERIC_ERROR;
+        return RC::IOERR_WRITE;
     }
 
-    // 3. 删除数据文件：{dir}/{table_name}.data
-    std::string data_file = std::string(dir) + "/" + name() + TABLE_DATA_SUFFIX;
+    // 4. 删除数据文件：{dir}/{table_name}.data
+    std::string data_file = table_data_file(dir, name());
     if (unlink(data_file.c_str()) != 0) {
         LOG_ERROR("Failed to remove data file=%s, errno=%d", data_file.c_str(), errno);
-        return RC::GENERIC_ERROR;
+        return RC::IOERR_WRITE;
     }
 
-    // 4. 删除 TEXT 字段数据文件（如果项目中有 TABLE_TEXT_DATA_SUFFIX 定义）
-    std::string text_data_file = std::string(dir) + "/" + name() + TABLE_TEXT_DATA_SUFFIX;
-    if (unlink(text_data_file.c_str()) != 0) {
-        LOG_ERROR("Failed to remove text data file=%s, errno=%d", text_data_file.c_str(), errno);
-        return RC::GENERIC_ERROR;
+    // 5. 删除 LOB 文件（新版用 .lob 后缀，可能不存在，仅记录日志）
+    std::string lob_file = table_lob_file(dir, name());
+    if (unlink(lob_file.c_str()) != 0) {
+        LOG_WARN("Failed to remove lob file=%s, errno=%d", lob_file.c_str(), errno);
     }
 
-    // 5. 关闭并删除所有索引文件
+    // 6. 删除所有索引文件
     const int index_num = table_meta_.index_num();
     for (int i = 0; i < index_num; i++) {
-        // 先关闭索引，释放内存资源
-        ((BplusTreeIndex *)indexes_[i])->close();
-
         const IndexMeta *index_meta = table_meta_.index(i);
-        std::string index_file = index_data_file(dir, name(), index_meta->name());
+        if (index_meta == nullptr) {
+            continue;
+        }
+        std::string index_file = table_index_file(dir, name(), index_meta->name());
         if (unlink(index_file.c_str()) != 0) {
             LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file.c_str(), errno);
-            return RC::GENERIC_ERROR;
+            return RC::IOERR_WRITE;
         }
     }
 
