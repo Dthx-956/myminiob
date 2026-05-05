@@ -172,6 +172,52 @@ RC Table::open(Db *db, const char *meta_file, const char *base_dir)
   return rc;
 }
 
+RC Table::destroy(const char *dir) 
+{
+    // 1. 必须先 sync，把 buffer pool 里的脏页刷到磁盘，否则删文件后重建同名表会读到旧数据
+    RC rc = sync();
+    if (rc != RC::SUCCESS) {
+        return rc;
+    }
+
+    // 2. 删除元数据文件：{dir}/{table_name}.table
+    std::string path = table_meta_file(dir, name());
+    if (unlink(path.c_str()) != 0) {
+        LOG_ERROR("Failed to remove meta file=%s, errno=%d", path.c_str(), errno);
+        return RC::GENERIC_ERROR;
+    }
+
+    // 3. 删除数据文件：{dir}/{table_name}.data
+    std::string data_file = std::string(dir) + "/" + name() + TABLE_DATA_SUFFIX;
+    if (unlink(data_file.c_str()) != 0) {
+        LOG_ERROR("Failed to remove data file=%s, errno=%d", data_file.c_str(), errno);
+        return RC::GENERIC_ERROR;
+    }
+
+    // 4. 删除 TEXT 字段数据文件（如果项目中有 TABLE_TEXT_DATA_SUFFIX 定义）
+    std::string text_data_file = std::string(dir) + "/" + name() + TABLE_TEXT_DATA_SUFFIX;
+    if (unlink(text_data_file.c_str()) != 0) {
+        LOG_ERROR("Failed to remove text data file=%s, errno=%d", text_data_file.c_str(), errno);
+        return RC::GENERIC_ERROR;
+    }
+
+    // 5. 关闭并删除所有索引文件
+    const int index_num = table_meta_.index_num();
+    for (int i = 0; i < index_num; i++) {
+        // 先关闭索引，释放内存资源
+        ((BplusTreeIndex *)indexes_[i])->close();
+
+        const IndexMeta *index_meta = table_meta_.index(i);
+        std::string index_file = index_data_file(dir, name(), index_meta->name());
+        if (unlink(index_file.c_str()) != 0) {
+            LOG_ERROR("Failed to remove index file=%s, errno=%d", index_file.c_str(), errno);
+            return RC::GENERIC_ERROR;
+        }
+    }
+
+    return RC::SUCCESS;
+}
+
 RC Table::insert_record(Record &record)
 {
   return engine_->insert_record(record);
