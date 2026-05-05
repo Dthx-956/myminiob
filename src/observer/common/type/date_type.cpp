@@ -4,6 +4,7 @@
 #include "common/lang/sstream.h"
 #include "common/lang/comparator.h"
 #include "storage/common/column.h"
+#include "common/type/boolean_type.h"
 
 static bool check_date(int y, int m, int d)
 {
