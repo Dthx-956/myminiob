@@ -50,6 +50,13 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
   return expr;
 }
 
+static bool check_date(int y, int m, int d)
+{
+  static int mon[] = {0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+  bool leap = (y % 400 == 0 || (y % 100 && y % 4 == 0));
+  return y > 0 && (m > 0) && (m <= 12) && (d > 0) && (d <= (((m == 2 && leap) ? 1 : 0) + mon[m]));
+}
+
 %}
 
 %define api.pure full
@@ -89,6 +96,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
         STRING_T
         FLOAT_T
         VECTOR_T
+        DATE_T
         HELP
         EXIT
         DOT //QUOTE
@@ -154,6 +162,7 @@ UnboundAggregateExpr *create_aggregate_expression(const char *aggregate_name,
 %token <number> NUMBER
 %token <floats> FLOAT
 %token <cstring> ID
+%token <cstring> DATE_STR
 %token <cstring> SSS
 //非终结符
 
@@ -381,6 +390,7 @@ type:
     | STRING_T { $$ = static_cast<int>(AttrType::CHARS); }
     | FLOAT_T  { $$ = static_cast<int>(AttrType::FLOATS); }
     | VECTOR_T { $$ = static_cast<int>(AttrType::VECTORS); }
+    | DATE_T   { $$ = static_cast<int>(AttrType::DATES); }
     ;
 primary_key:
     /* empty */
@@ -446,6 +456,21 @@ value:
       $$ = new Value(tmp);
       free(tmp);
     }
+    | DATE_STR {                                         // ← 新增
+    char *tmp = common::substr($1, 1, strlen($1)-2);
+    int y, m, d;
+    if (sscanf(tmp, "%d-%d-%d", &y, &m, &d) != 3 || !check_date(y, m, d)) {
+      free(tmp);
+      yyerror(&@$, sql_string, sql_result, scanner, "Invalid date");
+      $$ = new Value();  // dummy value，避免空指针
+    } else {
+      int dv = y * 10000 + m * 100 + d;
+      Value *v = new Value();
+      v->set_date(dv);
+      $$ = v;
+      free(tmp);
+    }
+  }
     ;
 storage_format:
     /* empty */
