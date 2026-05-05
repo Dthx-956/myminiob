@@ -234,6 +234,24 @@ RC Db::open_all_tables()
   return rc;
 }
 
+RC Db::drop_table(const char *table_name) 
+{
+    auto it = opened_tables_.find(table_name);
+    if (it == opened_tables_.end()) {
+        return RC::SCHEMA_TABLE_NOT_EXIST;  // 表不存在
+    }
+
+    Table *table = it->second;
+    RC rc = table->destroy(path_.c_str());  // 调用表的销毁方法
+    if (rc != RC::SUCCESS) {
+        return rc;
+    }
+
+    opened_tables_.erase(it);  // 从内存映射中移除
+    delete table;              // 释放表对象
+    return RC::SUCCESS;
+}
+
 const char *Db::name() const { return name_.c_str(); }
 
 void Db::all_tables(vector<string> &table_names) const
